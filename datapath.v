@@ -10,17 +10,19 @@ module datapath(
 wire [31:0]shiftedaqqm;
 wire [15:0]A,M,Q,Z;
 wire [4:0]count;
+wire push_q;
 assign eqz=(count==0);
 assign q0=Q[0];
 wire q0_internal=Q[0];
 assign product_internal={A,Q};
+assign push_q=(addsub[1])?A[0]:Z[0];
 
 
-alu unit(.addsub(addsub),.A(A),.M(M),.Z(Z),.clk(clk));
+alu unit(.addsub(addsub),.A(A),.M(M),.Z(Z));
 pipo M_reg(.ldM(ldM),.in(data_in),.out(M),.clk(clk));
 shiftreg A_reg(.sft(sftA),.clr(clrA),.ld(ldA),.in(Z),.out(A),
-.clk(clk),.push(A[15]));
-shiftreg Q_reg(.sft(sftQ),.clr(clrQ),.ld(ldQ),.in(data_in),.push(A[0]),
+.clk(clk),.push(Z[15]));
+shiftreg Q_reg(.sft(sftQ),.clr(clrQ),.ld(ldQ),.in(data_in),.push(push_q),
 .out(Q),.clk(clk));
 dff qmin(.clrff(clrff),.qm1(qm1),.q0(q0_internal),.clk(clk),.sft(sftQ));
 counter cn(.count(count),.decr(decr),.ldcnt(ldcnt),.clk(clk));
@@ -47,7 +49,7 @@ module counter(
     output reg [4:0]count
 );
     always@(posedge clk)begin
-        if (ldcnt)count<=5'd16;
+        if (ldcnt)count<=5'd15;
         else if(decr)count<=count-1;
     end
 
@@ -56,12 +58,16 @@ endmodule
 
 module alu(
     input [1:0]addsub,
-    input clk,
     input [15:0]A,M,
-    output [15:0]Z
+    output reg [15:0]Z
 );
-    assign Z=(!addsub)?(A - {{1{M[15]}}, M}):(A + {{1{M[15]}}, M});
-
+always @(*) begin
+    case (addsub)
+        0: Z = A + {{16{M[15]}}, M};
+        1: Z = A - {{16{M[15]}}, M};
+        default: Z = A;
+    endcase
+end
 endmodule
 
 
@@ -74,7 +80,10 @@ module shiftreg(
 
 always@(posedge clk)begin
     if(clr) out<=16'd0;
-    else if(ld) out<=in;
+    else if(ld) begin
+        if(~sft)out<=in;
+        else out<={push,in[15:1]};
+    end
     else if(sft)out<={push,out[15:1]};
 end
 
