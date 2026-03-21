@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 
 module controller(
-    input q0,qm1,start,clk,eqz,
+    input q1,q0,qm1,start,clk,eqz,
     output reg ldA,clrA,sftA,ldQ,clrQ,sftQ,ldM,clrff,decr,ldcnt,done,
-    output reg [1:0] addsub
+    output reg [2:0] addsub
 );
 
 localparam S0=3'd0,
@@ -52,12 +52,16 @@ always @(*) begin
 
         S3: begin
             // Booth decision
-            if ({q0, qm1} == 2'b01)
-                addsub = 0;   // add
-            else if ({q0, qm1} == 2'b10)
-                addsub = 1;   // subtract
-            else
-                addsub = 2;   // pass
+            if (({q1,q0, qm1} == 3'b001) || ({q1,q0, qm1} == 3'b010))
+                addsub = 3'd0;   // add
+            else if ({q1,q0, qm1} == 3'b011)
+                addsub = 3'd1;   // add 2m
+            else if ({q1,q0, qm1} == 3'b100)
+                addsub = 3'd3;   // sub 2m
+            else if (({q1,q0, qm1} == 3'b101) || ({q1,q0, qm1} == 3'b110))
+                addsub = 3'd4;   // sub m
+            else 
+                addsub = 3'd2;   // pass
 
             ldA=1;
             sftA=1; sftQ=1;
@@ -69,6 +73,16 @@ always @(*) begin
         end
     endcase
 end
+
+// Radix-4 Booth Encoding
+// 000 ->  0; addsub=2;
+// 001 -> +m; addsub=0;
+// 010 -> +m; addsub=0;
+// 011 -> +2m; addsub=1;
+// 100 -> -2m; addsub=3;
+// 101 -> -m; addsub=4;
+// 110 -> -m; addsub=4;
+// 111 ->  0; addsub=2;
 
 
 endmodule

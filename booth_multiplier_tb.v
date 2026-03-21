@@ -24,7 +24,6 @@ booth_multiplier uut (
 always #5 clk = ~clk;
 
 
-
 // Task to run one test
 task run_test;
 
@@ -34,7 +33,6 @@ input signed [15:0] multiplier;
 reg signed [31:0] expected;
 
 begin
-
     expected = multiplicand * multiplier;
 
     // Load multiplicand
@@ -50,94 +48,86 @@ begin
     data_in = multiplier;
 
     // Wait for completion
-    wait(done);
+    while (!done)
+        @(posedge clk);
 
-    // Compare results
-    if(product === expected)
+    // Check result
+    if (product === expected)
         $display("PASS: %0d x %0d = %0d", multiplicand, multiplier, product);
     else
         $display("FAIL: %0d x %0d -> DUT=%0d Expected=%0d",
                  multiplicand, multiplier, product, expected);
 
     #20;
-
 end
 
 endtask
 
 
-
-integer i;
-reg signed [15:0] a,b;
-
 initial begin
-
     clk = 0;
     start = 0;
     data_in = 0;
 
     #20;
 
-    // ===== Zero Cases =====
-    run_test(0,0);
+    //og test cases
+    run_test(3,92);
+    run_test(16,-16);
+    run_test(-3,92);
+    run_test(55,-17);
+    run_test(-696,-41);
+    run_test(152,220);
+    run_test(-8,8);
+
+    // Zero cases
     run_test(0,123);
-    run_test(123,0);
     run_test(-456,0);
     run_test(0,-789);
 
-    // ===== ±1 Cases =====
-    run_test(1,999);
+    // ±1 cases
     run_test(-1,999);
     run_test(999,1);
     run_test(999,-1);
     run_test(-1,-1);
 
-    // ===== Boundary (16-bit stress) =====
-    run_test(32767,1);
-    run_test(32767,2);
+    // Boundary cases
     run_test(32767,32767);
+    run_test(-32768,1);
+    run_test(-32768,-1);
+    run_test(-32768,-32768);
 
-    // ===== Power-of-2 / Shift Sensitive =====
-    run_test(1,128);
-    run_test(8,16);
-    run_test(128,-1);
-    run_test(-64,4);
-
-    // ===== Bit Pattern Stress =====
-    run_test(85,170);
+    // Bit pattern stress
     run_test(-85,170);
     run_test(85,-170);
     run_test(-85,-170);
 
-    // ===== Dense / Sparse Bits =====
+    // Dense / sparse
     run_test(255,3);
-    run_test(127,127);
     run_test(-127,127);
     run_test(255,-255);
 
-    // ===== Near-Zero Edge Transitions =====
+    // Near-zero transitions
     run_test(1,-1);
     run_test(-1,1);
     run_test(2,-1);
     run_test(-2,1);
     run_test(1,-2);
 
-    // ===== Random Stress =====
+    // Random-ish
     run_test(1234,5678);
     run_test(-2345,678);
     run_test(4095,-1023);
     run_test(-3000,-2000);
 
-
-    // ===== Boundary (16-bit stress) =====
-    run_test(-32768,1);
-    run_test(-32768,-1);
-    run_test(-32768,-32768);   
-    //These are wrong because signed and unsigned manipulation in testbench (insufficient length syndrome)
+    // Large Values with Mixed sign a.k.a (the overflow)
+    run_test(28000, -15000);
+    run_test(30000, -30000);
+    run_test(32000, 32000);
+    run_test(32767, -30000);
 
     #50;
     $finish;
-
 end
 
 endmodule
